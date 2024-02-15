@@ -6,7 +6,6 @@ import os
 import pandas as pd
 from datetime import datetime, timedelta
 import re
-import seaborn as sns
 import matplotlib.pyplot as plt
 import plotly.express as px
 
@@ -249,10 +248,13 @@ def concat_files(message):
     current_date = begin_record_date
     combined_data = pd.DataFrame()
     device = user_info_open[str(message.from_user.id)]['device']
-    while current_date <= end_record_date:
-        data = pd.read_csv(f"{device}/{current_date.strftime('%Y_%m')}_{device}.csv")
-        combined_data = pd.concat([combined_data, data], ignore_index=True)
-        current_date += timedelta(days=31)
+    while current_date <= end_record_date + timedelta(days=32):
+        try:
+            data = pd.read_csv(f"{device}/{current_date.strftime('%Y_%m')}_{device}.csv")
+            combined_data = pd.concat([combined_data, data], ignore_index=True)
+            current_date += timedelta(days=29)
+        except FileNotFoundError:
+            current_date += timedelta(days=31)
     begin_record_date = pd.to_datetime(begin_record_date)
     end_record_date = pd.to_datetime(end_record_date)
     time_col = json.load(open('config_devices.json', 'r'))[device]['time_cols']
@@ -281,3 +283,4 @@ bot.polling(none_stop=True)
 # TODO: продолжение старые скачать 1 раз, текущий скачивать каждый раз
 
 # TODO: Прямо при загрузке данных надо удалять не нудные столбцы строчные)
+# TODO: при стартовой дате TCA выдает ошибку
