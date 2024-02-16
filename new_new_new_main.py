@@ -227,9 +227,6 @@ def concat_files(message):
 
 bot.polling(none_stop=True)
 
-
-
-
 """
 def make_graph(device):
     combined_data = pd.DataFrame()
@@ -247,7 +244,6 @@ def make_graph(device):
     fig.update_layout(legend_itemclick='toggle')
     offline.plot(fig, filename=f'templates/graph_{device}.html', auto_open=False)
 """
-
 
 """def choose_columns(message):
     user_info_open = json.load(open('user_info.json', 'r'))
