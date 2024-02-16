@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 import re
 import matplotlib.pyplot as plt
 import plotly.express as px
+import plotly.offline as offline
+
 
 
 def files_in_folder(url, typ='all'):
@@ -271,6 +273,23 @@ def concat_files(message):
     fig.write_image(f"graphs_photo/{str(message.from_user.id)}.png")
     bot.send_photo(str(message.from_user.id), photo=open(f"graphs_photo/{str(message.from_user.id)}.png", 'rb'))
     plt.close()
+
+def make_graph(device):
+    combined_data = pd.DataFrame()
+    for i in next(os.walk(f"{device}"), (None, None, []))[2]:
+        data = pd.read_csv(f"{device}/{i}")
+        combined_data = pd.concat([combined_data, data], ignore_index=True)
+    time_col = json.load(open('config_devices.json', 'r'))[device]['time_cols']
+    combined_data.set_index(time_col, inplace=True)
+    combined_data = combined_data.replace(',', '.', regex=True).astype(float)
+    combined_data.reset_index(inplace=True)
+    m = pd.to_datetime(max(combined_data[time_col]))
+    last_48_hours = [m.replace(day=(m.day - 2)), m]
+    cols_to_draw = json.load(open('config_devices.json', 'r'))[device]['cols']
+    fig = px.line(combined_data, x=time_col, y=cols_to_draw, range_x=last_48_hours)
+    fig.update_layout(legend_itemclick='toggle')
+    offline.plot(fig, filename=f'templates/graph_{device}.html', auto_open=False)
+
 
 
 bot.polling(none_stop=True)
