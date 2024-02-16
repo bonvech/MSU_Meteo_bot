@@ -11,12 +11,13 @@ import plotly.express as px
 import plotly.offline as offline
 
 
-
 def files_in_folder(url, typ='all'):
     out = []
     parts = url.split("/")
     api_url = f"https://api.github.com/repos/{parts[3]}/{parts[4]}/contents/{'/'.join(parts[7:])}?ref={parts[6]}"
+    print(api_url)
     data = requests.get(api_url).json()
+    print(data)
     for item in data:
         if item['type'] == typ or typ == 'all':
             out.append(item['name'])
@@ -38,7 +39,7 @@ def download_all(message):
             link = f"https://github.com/omixyy/meteosite/tree/main/data/{i}/{j}"
             response = requests.get(format_github_link(link))
             name = re.split("-|_", j)
-            with open(f"{i}/{name[0]}_{name[1]}_{i}.csv", "wb") as file:
+            with open(f'data/{j}', "wb") as file:
                 file.write(response.content)
             preprocessing_file(i, f"{i}/{name[0]}_{name[1]}_{i}.csv")
 
@@ -165,6 +166,7 @@ def choose_time_delay(message):
         user_info_open[str(message.from_user.id)]['begin_record_date'] = str(begin_record_date).split()[0]
         with open('user_info.json', 'w') as outfile:
             json.dump(user_info_open, outfile)
+        # choose_columns(message)
         concat_files(message)
     elif message.text == 'Свой временной промежуток':
         choose_not_default_start_date(message)
@@ -237,10 +239,28 @@ def end_record_date_choose(message):
         with open('user_info.json', 'w') as outfile:
             json.dump(user_info_open, outfile)
         concat_files(message)
+        # choose_columns(message)
 
     except ValueError:
         bot.send_message(message.chat.id, "Введена не корректная дата")
         choose_not_default_finish_date(message)
+
+
+##################################
+
+
+"""def choose_columns(message):
+    user_info_open = json.load(open('user_info.json', 'r'))
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    device = user_info_open[str(message.from_user.id)]['device']
+    ava_col = json.load(open('config_devices.json', 'r'))[device]['cols']
+    for i in ava_col:
+        markup.add(types.InlineKeyboardButton(str(i), callback_data=str(i)))
+    next = types.InlineKeyboardButton('Выбрано', callback_data='next')
+    back = types.InlineKeyboardButton('Обратно', callback_data='back')
+    markup.add(next, back)
+    bot.send_message(message.chat.id, 'Столбцы для выбора:', reply_markup=markup)
+"""
 
 
 def concat_files(message):
@@ -274,6 +294,7 @@ def concat_files(message):
     bot.send_photo(str(message.from_user.id), photo=open(f"graphs_photo/{str(message.from_user.id)}.png", 'rb'))
     plt.close()
 
+
 def make_graph(device):
     combined_data = pd.DataFrame()
     for i in next(os.walk(f"{device}"), (None, None, []))[2]:
@@ -291,15 +312,4 @@ def make_graph(device):
     offline.plot(fig, filename=f'templates/graph_{device}.html', auto_open=False)
 
 
-
 bot.polling(none_stop=True)
-# TODO: ОБЪЕДИНИТЬ work_with_first_file work_with_latest_file
-# TODO: ОБТИМИЗИРОВАТЬ ВЫГРУЗКУ JSON, ЗАГРУЗКУ ДАННЫХ В НИХ(СЛОВАРИ), ЗАГРУЗКА СЛОВАРЕЙ
-# TODO: ОПТИМИЗИРОВАТЬ У ПРИБОРОВ ПОСТОЯННО НАЧАЛЬНАЯ ДАТА
-# TODO: МОЖНО ПРОСЧИТЫВАТЬ ПОСЛЕДНЮЮ ЗАПИСЬ ПО ДРГУОМУ, НАПРИМЕР ПО ДЕФОЛТУ СТАВИТЬ СЕГОДНЯШНЮЮ ДАТУ И подумать...
-# TODO: ВВЕСТИ ОДИН ФОРМАТ ДАТ
-# TODO: ОПТИМИЗИРОВАТЬ, ЧТО ФАЙЛЫ С НЕ ТЕКУЩИМ МЕСЯЦЕМ НЕ ОБНОВЛЯЮТСЯ И ИХ МОЖНО СКАЧИВАТЬ СНОВА И СНОВА, то есть
-# TODO: продолжение старые скачать 1 раз, текущий скачивать каждый раз
-
-# TODO: Прямо при загрузке данных надо удалять не нудные столбцы строчные)
-# TODO: при стартовой дате TCA выдает ошибку
