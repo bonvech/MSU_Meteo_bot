@@ -78,7 +78,6 @@ def work_with_latest_file(user_id):
     max_date = str(file_name[load_json('config_devices.json')[device]['time_cols']].max()).split()[0]
     devices_tech_info_open = load_json('devices_tech_info.json')
     devices_tech_info_open[device] = {'last_record_file': last_record_file}
-    # devices_tech_info_open[device]['last_record_date'] = max_date
     user_info_open[user_id]['last_record_date'] = max_date
     upload_json('user_info.json', user_info_open)
     upload_json('devices_tech_info.json', devices_tech_info_open)
