@@ -7,9 +7,11 @@ from telebot import types
 import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
+import config
 
-bot = telebot.TeleBot('6727673127:AAFG9CY-YrV1_Y77duF50_JiKlJae29HCKs')
-list_devices = os.listdir('data')
+bot = telebot.TeleBot(config.token)
+main_path = 'data'
+list_devices = os.listdir(main_path)
 
 
 def load_json(path):
@@ -24,9 +26,9 @@ def upload_json(path, to_save):
 @bot.message_handler(commands=['preprocessing_all_files'])
 def preprocessing_all_files(message):
     for path in list_devices:
-        for file in os.listdir(f'data/{path}'):
+        for file in os.listdir(f'{main_path}/{path}'):
             if file.endswith('.csv'):
-                preprocessing_one_file(f'data/{path}/{file}')
+                preprocessing_one_file(f'{main_path}/{path}/{file}')
 
 
 def preprocessing_one_file(path):
@@ -50,9 +52,6 @@ def preprocessing_one_file(path):
     time_col = load_json('config_devices.json')[device]['time_cols']
     df = df[cols_to_draw + [time_col]]
     df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
-    """df.set_index(time_col, inplace=True)
-    df = df.replace(',', '.', regex=True).astype(float)
-    df.reset_index(inplace=True)"""
     name = re.split("[-_]", file_name)
     if not os.path.exists(f'proc_data/{device}'):
         os.makedirs(f'proc_data/{device}')
@@ -73,7 +72,7 @@ def start(message):
 def work_with_latest_file(user_id):
     user_info_open = load_json('user_info.json')
     device = user_info_open[user_id]['device']
-    last_record_file = f"data/{device}/{max(list(filter(lambda x: '.csv' in x, os.listdir(f'data/{device}'))))}"
+    last_record_file = f"{main_path}/{device}/{max(list(filter(lambda x: '.csv' in x, os.listdir(f'{main_path}/{device}'))))}"
     file_name = pd.read_csv(preprocessing_one_file(last_record_file))
     max_date = str(file_name[load_json('config_devices.json')[device]['time_cols']].max()).split()[0]
     devices_tech_info_open = load_json('devices_tech_info.json')
@@ -201,21 +200,22 @@ def concat_files(message):
     current_date, combined_data = begin_record_date, pd.DataFrame()
     while current_date <= end_record_date + timedelta(days=32):
         try:
-            data = pd.read_csv(f"{device}/{current_date.strftime('%Y_%m')}_{device}.csv")
+            data = pd.read_csv(f"proc_data/{device}/{current_date.strftime('%Y_%m')}.csv")
             combined_data = pd.concat([combined_data, data], ignore_index=True)
             current_date += timedelta(days=29)
         except FileNotFoundError:
-            current_date += timedelta(days=31)
+            current_date += timedelta(days=29)
+    print(combined_data)
     begin_record_date = pd.to_datetime(begin_record_date)
     end_record_date = pd.to_datetime(end_record_date)
     time_col = load_json('config_devices.json')[device]['time_cols']
     combined_data[time_col] = pd.to_datetime(combined_data[time_col], format="%Y-%m-%d %H:%M:%S")
     combined_data = combined_data[
         (combined_data[time_col] >= begin_record_date) & (combined_data[time_col] <= end_record_date)]
+    combined_data.set_index(time_col, inplace=True)
     if (end_record_date - begin_record_date).days > 2 and len(combined_data) >= 500:
         combined_data = combined_data.resample('60min').mean()
     cols_to_draw = load_json('config_devices.json')[device]['cols']
-    combined_data.set_index(time_col, inplace=True)
     combined_data = combined_data.replace(',', '.', regex=True).astype(float)
     combined_data.reset_index(inplace=True)
     fig = px.line(combined_data, x=time_col, y=cols_to_draw)
@@ -225,24 +225,6 @@ def concat_files(message):
 
 
 bot.polling(none_stop=True)
-
-"""
-def make_graph(device):
-    combined_data = pd.DataFrame()
-    for i in next(os.walk(f"{device}"), (None, None, []))[2]:
-        data = pd.read_csv(f"{device}/{i}")
-        combined_data = pd.concat([combined_data, data], ignore_index=True)
-    time_col = json.load(open('config_devices.json', 'r'))[device]['time_cols']
-    combined_data.set_index(time_col, inplace=True)
-    combined_data = combined_data.replace(',', '.', regex=True).astype(float)
-    combined_data.reset_index(inplace=True)
-    m = pd.to_datetime(max(combined_data[time_col]))
-    last_48_hours = [m.replace(day=(m.day - 2)), m]
-    cols_to_draw = json.load(open('config_devices.json', 'r'))[device]['cols']
-    fig = px.line(combined_data, x=time_col, y=cols_to_draw, range_x=last_48_hours)
-    fig.update_layout(legend_itemclick='toggle')
-    offline.plot(fig, filename=f'templates/graph_{device}.html', auto_open=False)
-"""
 
 """def choose_columns(message):
     user_info_open = json.load(open('user_info.json', 'r'))
