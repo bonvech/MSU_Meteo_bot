@@ -7,6 +7,8 @@ from telebot import types
 import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
+from telebot.types import CallbackQuery
+
 import config
 
 bot = telebot.TeleBot(config.token)
@@ -119,8 +121,7 @@ def choose_time_delay(message):
             '%Y-%m-%d')
         user_info_open[str(message.from_user.id)]['begin_record_date'] = str(begin_record_date).split()[0]
         upload_json('user_info.json', user_info_open)
-        # choose_columns(message)
-        concat_files(message)
+        choose_columns(message)
     elif message.text == 'Свой временной промежуток':
         choose_not_default_start_date(message)
     else:
@@ -184,11 +185,50 @@ def end_record_date_choose(message):
             raise ValueError
         user_info_open[str(message.from_user.id)]['last_record_date'] = str(end_record_date).split()[0]
         upload_json('user_info.json', user_info_open)
-        concat_files(message)
-        # choose_columns(message)
+        choose_columns(message)
     except ValueError:
         bot.send_message(message.chat.id, "Введена некорректная дата")
         choose_not_default_finish_date(message)
+
+
+@bot.callback_query_handler(func=lambda call: True)
+def choose_columns(message):
+    if isinstance(message, CallbackQuery):
+        text = message.data
+    else:
+        text = message.text
+    if text.startswith('feature'):
+        feature = message.data.split('feature')[1].split("_")[-1]
+        user_info_open = load_json('user_info.json')
+        selected_features = user_info_open[str(message.from_user.id)]['selected_columns']
+        if feature in selected_features:
+            selected_features.remove(feature)
+            bot.answer_callback_query(message.id, 'Вы убрали столбец ' + feature)
+        else:
+            selected_features.append(feature)
+            bot.answer_callback_query(message.id, 'Вы добавили столбец ' + feature)
+        user_info_open[str(message.from_user.id)]['selected_columns'] = selected_features
+        upload_json('user_info.json', user_info_open)
+        bot.answer_callback_query(message.id, 'Вы выбрали Фичу ' + feature)
+
+    elif text == 'next':
+        if len(load_json('user_info.json')[str(message.from_user.id)]['selected_columns']) != 0:
+            concat_files(message)
+        else:
+            bot.answer_callback_query(message.id, 'Ни один параметр не выбран!')
+    else:
+        user_info_open = load_json('user_info.json')
+        device = user_info_open[str(message.from_user.id)]['device']
+        ava_col = load_json('config_devices.json')[device]['cols']
+        if 'selected_columns' not in user_info_open[str(message.from_user.id)].keys():
+            user_info_open[str(message.from_user.id)]['selected_columns'] = ava_col
+        upload_json('user_info.json', user_info_open)
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        for i in ava_col:
+            markup.add(types.InlineKeyboardButton(str(i), callback_data=f'feature_{str(i)}'))
+        cont = types.InlineKeyboardButton('Выбрано', callback_data='next')
+        markup.add(cont)
+        bot.send_message(message.chat.id, 'Столбцы для выбора:', reply_markup=markup)
 
 
 def concat_files(message):
@@ -205,7 +245,6 @@ def concat_files(message):
             current_date += timedelta(days=29)
         except FileNotFoundError:
             current_date += timedelta(days=29)
-    print(combined_data)
     begin_record_date = pd.to_datetime(begin_record_date)
     end_record_date = pd.to_datetime(end_record_date)
     time_col = load_json('config_devices.json')[device]['time_cols']
@@ -215,7 +254,7 @@ def concat_files(message):
     combined_data.set_index(time_col, inplace=True)
     if (end_record_date - begin_record_date).days > 2 and len(combined_data) >= 500:
         combined_data = combined_data.resample('60min').mean()
-    cols_to_draw = load_json('config_devices.json')[device]['cols']
+    cols_to_draw = user_id['selected_columns']
     combined_data = combined_data.replace(',', '.', regex=True).astype(float)
     combined_data.reset_index(inplace=True)
     fig = px.line(combined_data, x=time_col, y=cols_to_draw)
