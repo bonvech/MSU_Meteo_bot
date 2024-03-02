@@ -54,7 +54,7 @@ def preprocessing_one_file(path):
     cols_to_draw = load_json('config_devices.json')[device]['cols']
     time_col = load_json('config_devices.json')[device]['time_cols']
     df = df[cols_to_draw + [time_col]]
-    df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
+    df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
     name = re.split("[-_]", file_name)
     if not os.path.exists(f'proc_data/{device}'):
         os.makedirs(f'proc_data/{device}')
