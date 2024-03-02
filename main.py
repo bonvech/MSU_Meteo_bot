@@ -6,7 +6,6 @@ import telebot
 from telebot import types
 import pandas as pd
 import matplotlib.pyplot as plt
-import plotly.express as px
 from telebot.types import CallbackQuery
 import plotly.graph_objects as go
 
@@ -136,10 +135,11 @@ def choose_time_delay(message):
 
 def choose_not_default_start_date(message):
     devices_tech_info_open = load_json('devices_tech_info.json')
-    device = load_json('user_info.json')[str(message.from_user.id)]['device']
+    user_info_open = load_json('user_info.json')[str(message.from_user.id)]
+    device = user_info_open['device']
     first_record_date = devices_tech_info_open[device]['first_record_date']
     first_record_date = datetime.strptime(first_record_date, "%Y-%m-%d").strftime("%d.%m.%Y")
-    last_record_date = devices_tech_info_open[device]['last_record_date']
+    last_record_date = user_info_open['last_record_date']
     last_record_date = datetime.strptime(last_record_date, "%Y-%m-%d").strftime("%d.%m.%Y")
     bot.send_message(message.chat.id, f"Данные досупны с {first_record_date} по {last_record_date}")
     msg = bot.send_message(message.chat.id, "Дата начала отрезка данных (в формате 'день.месяц.год')",
@@ -153,7 +153,7 @@ def begin_record_date_choose(message):
     device = user_info_open[str(message.from_user.id)]['device']
     first_record_date = devices_tech_info_open[device]['first_record_date']
     first_record_date = datetime.strptime(first_record_date, "%Y-%m-%d").date()
-    last_record_date = devices_tech_info_open[device]['last_record_date']
+    last_record_date = user_info_open['last_record_date']
     last_record_date = datetime.strptime(last_record_date, "%Y-%m-%d").date()
     try:
         begin_record_date = datetime.strptime(message.text, "%d.%m.%Y").date()
@@ -178,7 +178,7 @@ def end_record_date_choose(message):
     device = user_info_open[str(message.from_user.id)]['device']
     begin_record_date = user_info_open[str(message.from_user.id)]['begin_record_date']
     begin_record_date = datetime.strptime(begin_record_date, "%Y-%m-%d").date()
-    last_record_date = devices_tech_info_open[device]['last_record_date']
+    last_record_date = user_info_open[str(message.from_user.id)]['last_record_date']
     last_record_date = datetime.strptime(last_record_date, "%Y-%m-%d").date()
 
     try:
@@ -200,7 +200,7 @@ def choose_columns(message):
     else:
         text = message.text
     if text.startswith('feature'):
-        feature = message.data.split('feature')[1].split("_")[-1]
+        feature = "_".join(message.data.split('feature')[1].split("_")[1::])
         user_info_open = load_json('user_info.json')
         selected_features = user_info_open[str(message.from_user.id)]['selected_columns']
         if feature in selected_features:
@@ -255,15 +255,14 @@ def concat_files(message):
     combined_data = combined_data[
         (combined_data[time_col] >= begin_record_date) & (combined_data[time_col] <= end_record_date)]
     combined_data.set_index(time_col, inplace=True)
+    combined_data = combined_data.replace(',', '.', regex=True).astype(float)
     if (end_record_date - begin_record_date).days > 2 and len(combined_data) >= 500:
         combined_data = combined_data.resample('60min').mean()
     cols_to_draw = user_id['selected_columns']
-    combined_data = combined_data.replace(',', '.', regex=True).astype(float)
     combined_data.reset_index(inplace=True)
     """color_cols_to_draw = []
     for col in cols_to_draw:
         color_cols_to_draw.append(device['color_dict'].get(col))"""
-    #print(color_cols_to_draw, combined_data.shape, len(cols_to_draw))
     fig = go.Figure()
     for col in cols_to_draw:
         fig.add_trace(go.Scatter(x=combined_data[time_col], y=combined_data[col],
