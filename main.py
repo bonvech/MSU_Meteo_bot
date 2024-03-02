@@ -8,6 +8,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
 from telebot.types import CallbackQuery
+import plotly.graph_objects as go
+
 
 import config
 
@@ -247,7 +249,8 @@ def concat_files(message):
             current_date += timedelta(days=29)
     begin_record_date = pd.to_datetime(begin_record_date)
     end_record_date = pd.to_datetime(end_record_date)
-    time_col = load_json('config_devices.json')[device]['time_cols']
+    device_dict = load_json('config_devices.json')[device]
+    time_col = device_dict['time_cols']
     combined_data[time_col] = pd.to_datetime(combined_data[time_col], format="%Y-%m-%d %H:%M:%S")
     combined_data = combined_data[
         (combined_data[time_col] >= begin_record_date) & (combined_data[time_col] <= end_record_date)]
@@ -257,7 +260,26 @@ def concat_files(message):
     cols_to_draw = user_id['selected_columns']
     combined_data = combined_data.replace(',', '.', regex=True).astype(float)
     combined_data.reset_index(inplace=True)
-    fig = px.line(combined_data, x=time_col, y=cols_to_draw)
+    """color_cols_to_draw = []
+    for col in cols_to_draw:
+        color_cols_to_draw.append(device['color_dict'].get(col))"""
+    #print(color_cols_to_draw, combined_data.shape, len(cols_to_draw))
+    fig = go.Figure()
+    for col in cols_to_draw:
+        fig.add_trace(go.Scatter(x=combined_data[time_col], y=combined_data[col],
+                                 mode='lines',
+                                 name=col,
+                                 marker_color=device_dict['color_dict'][col]))
+    fig.update_layout(
+        title=str(device),
+        xaxis=dict(title="Time"),
+        plot_bgcolor="white",
+        paper_bgcolor="white"
+    )
+    fig.update_traces(line={'width': 2})
+    fig.update_xaxes(gridcolor='grey')
+    fig.update_yaxes(gridcolor='grey')
+    #fig = px.line(combined_data, x=time_col, y=cols_to_draw, color=color_cols_to_draw*combined_data.shape[0])
     fig.write_image(f"graphs_photo/{str(message.from_user.id)}.png")
     bot.send_photo(str(message.from_user.id), photo=open(f"graphs_photo/{str(message.from_user.id)}.png", 'rb'))
     plt.close()
@@ -276,4 +298,14 @@ bot.polling(none_stop=True)
     back = types.InlineKeyboardButton('Обратно', callback_data='back')
     markup.add(next, back)
     bot.send_message(message.chat.id, 'Столбцы для выбора:', reply_markup=markup)
+"""
+
+"""
+Сохранение цветов к столбцам
+f = json.load(open('config_devices.json', 'r'))
+colors = px.colors.qualitative.Alphabet
+for i in f.keys():
+    f[i]['color_dict'] = {}
+    for j in range(len(f[i]['cols'])):
+        f[i]['color_dict'][f[i]['cols'][j]] = colors[j]
 """
