@@ -1,1 +1,1 @@
-{"989370498": {"device": "Web_MEM", "last_record_date": "2024-01-30", "begin_record_date": "2024-01-28", "selected_columns": ["CH4", "CO", "NO", "NO2", "OZ", "PM10", "PM2.5", "SO2"]}, "141587662": {"device": "AE33-S09-01249", "last_record_date": "2024-01-31", "begin_record_date": "2023-12-31"}}
+{"device": "AE33-S09-01249", "last_record_date": "2024-01-31", "begin_record_date": "2023-07-01", "989370498": {"device": "Web_MEM", "last_record_date": "2024-01-30", "begin_record_date": "2023-07-01", "selected_columns": ["CH4", "CO", "PM10", "SO2"]}}
