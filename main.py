@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 from telebot.types import CallbackQuery
 import plotly.graph_objects as go
 
-
 import config
 
 bot = telebot.TeleBot(config.token)
@@ -202,44 +201,57 @@ def end_record_date_choose(message):
         choose_not_default_finish_date(message)
 
 
+def draw_inline_keyboard(selected_columns, ava_col):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for i in ava_col:
+        emoji = ' ✔️' if i in selected_columns else ' ❌'
+        markup.add(types.InlineKeyboardButton(str(i) + emoji, callback_data=f'feature_{str(i)}'))
+    markup.add(types.InlineKeyboardButton('Выбрано', callback_data='next'))
+    return markup
+
+
 @bot.callback_query_handler(func=lambda call: True)
-def choose_columns(message):
-    if isinstance(message, CallbackQuery):
-        text = message.data
+def choose_columns(call):
+    if isinstance(call, CallbackQuery):
+        text = call.data
     else:
-        text = message.text
+        text = call.text
     if text.startswith('feature'):
-        feature = "_".join(message.data.split('feature')[1].split("_")[1::])
+        feature = "_".join(call.data.split('feature')[1].split("_")[1::])
         user_info_open = load_json('user_info.json')
-        selected_features = user_info_open[str(message.from_user.id)]['selected_columns']
+        selected_features = user_info_open[str(call.from_user.id)]['selected_columns']
         if feature in selected_features:
             selected_features.remove(feature)
-            bot.answer_callback_query(message.id, 'Вы убрали столбец ' + feature)
+            bot.answer_callback_query(call.id, 'Вы убрали столбец ' + feature)
         else:
             selected_features.append(feature)
-            bot.answer_callback_query(message.id, 'Вы добавили столбец ' + feature)
-        user_info_open[str(message.from_user.id)]['selected_columns'] = selected_features
+            bot.answer_callback_query(call.id, 'Вы добавили столбец ' + feature)
+        user_info_open[str(call.from_user.id)]['selected_columns'] = selected_features
         upload_json('user_info.json', user_info_open)
-        bot.answer_callback_query(message.id, 'Вы выбрали Фичу ' + feature)
+        bot.answer_callback_query(call.id, 'Вы выбрали Фичу ' + feature)
+        selected_columns = user_info_open[str(call.from_user.id)]['selected_columns']
+        ava_col = load_json('config_devices.json')[user_info_open[str(call.from_user.id)]['device']]['cols']
+        """bot.edit_message_text(call.id, reply_markup=draw_inline_keyboard(selected_columns, ava_col))"""
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="Нажми",
+                              reply_markup=draw_inline_keyboard(selected_columns, ava_col))
+
+
+        print("AAAAAA")
 
     elif text == 'next':
-        if len(load_json('user_info.json')[str(message.from_user.id)]['selected_columns']) != 0:
-            concat_files(message)
+        if len(load_json('user_info.json')[str(call.from_user.id)]['selected_columns']) != 0:
+            concat_files(call)
         else:
-            bot.answer_callback_query(message.id, 'Ни один параметр не выбран!')
+            bot.answer_callback_query(call.id, 'Ни один параметр не выбран!')
     else:
         user_info_open = load_json('user_info.json')
-        device = user_info_open[str(message.from_user.id)]['device']
-        ava_col = load_json('config_devices.json')[device]['cols']
-        if 'selected_columns' not in user_info_open[str(message.from_user.id)].keys():
-            user_info_open[str(message.from_user.id)]['selected_columns'] = ava_col
+        ava_col = load_json('config_devices.json')[user_info_open[str(call.from_user.id)]['device']]['cols']
+        if 'selected_columns' not in user_info_open[str(call.from_user.id)].keys():
+            user_info_open[str(call.from_user.id)]['selected_columns'] = ava_col
         upload_json('user_info.json', user_info_open)
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        for i in ava_col:
-            markup.add(types.InlineKeyboardButton(str(i), callback_data=f'feature_{str(i)}'))
-        cont = types.InlineKeyboardButton('Выбрано', callback_data='next')
-        markup.add(cont)
-        bot.send_message(message.chat.id, 'Столбцы для выбора:', reply_markup=markup)
+        selected_columns = user_info_open[str(call.from_user.id)]['selected_columns']
+        bot.send_message(call.chat.id, 'Столбцы для выбора:',
+                         reply_markup=draw_inline_keyboard(selected_columns, ava_col))
 
 
 def concat_files(message):
@@ -285,9 +297,17 @@ def concat_files(message):
         paper_bgcolor="white"
     )
     fig.update_traces(line={'width': 2})
-    fig.update_xaxes(gridcolor='grey')
-    fig.update_yaxes(gridcolor='grey')
-    #fig = px.line(combined_data, x=time_col, y=cols_to_draw, color=color_cols_to_draw*combined_data.shape[0])
+    fig.update_xaxes(gridcolor='grey',
+                     showline=True,
+                     linewidth=1,
+                     linecolor='black',
+                     mirror=True,
+                     tickformat='%d.%m.%Y')
+    fig.update_yaxes(gridcolor='grey',
+                     showline=True,
+                     linewidth=1,
+                     linecolor='black',
+                     mirror=True)
     fig.write_image(f"graphs_photo/{str(message.from_user.id)}.png")
     bot.send_photo(str(message.from_user.id), photo=open(f"graphs_photo/{str(message.from_user.id)}.png", 'rb'))
     plt.close()
